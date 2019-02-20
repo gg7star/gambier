@@ -39,9 +39,10 @@
             displayError.textContent = '';
         }
     });
-
+    
     // Handle form submission.
     var form = document.getElementById('payment-form');
+    var form_stored = document.getElementById('payment-form-stored');
     form.addEventListener('submit', function(event) {
         event.preventDefault();
         if ($(".cc-radio:checked").length > 0) {
@@ -62,6 +63,14 @@
             });
         }
     });
+
+    form_stored.addEventListener('submit', function(event) {
+        event.preventDefault();
+        if ($(".cc-radio:checked").length > 0) {
+            console.log('==== .cc-radio:checked: ', $(".cc-radio:checked").length);
+            document.getElementById('payment-form-stored').submit();
+        }
+    }); 
 // });
 })(jQuery);
 

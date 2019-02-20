@@ -203,7 +203,7 @@ class ReservationsController < ApplicationController
     charge = Stripe::Charge.create({
         amount: @charge_amount, 
         currency: 'usd',
-        customer: current_user.credit_cards[0]['stripe_card_id'], # Previously stored, then retrieved
+        customer: current_user.stored_stripes[0]['customer_id'],
     })
     r = reserve_tickets(Reservation::PD_CREDIT, @user, @conductor_wish, @contact_phone,
         session[:reservation_details], charge['id'],
@@ -214,6 +214,7 @@ class ReservationsController < ApplicationController
   end
 
   def complete_with_stripe
+
     # Create new credit card from stripToken param, or retrieve it from Stripe account.
     handle_token
     
@@ -224,20 +225,11 @@ class ReservationsController < ApplicationController
       @stripe_charger.charge!
      
       if @stripe_charger.success?
-
         amount_str = number_to_currency(@stripe_charger.order_total_in_dollars)
 
         customer = Stripe::Customer.retrieve(current_user.stripe_customer_id)
         card_suffix = customer['sources']['data'][0]['last4']
-        ccard = current_user.credit_cards.update(
-            :last_4 => card_suffix,
-            :kind => customer['sources']['data'][0]['brand'],
-            :exp_mo => customer['sources']['data'][0]['exp_month'],
-            :exp_year => customer['sources']['data'][0]['exp_year'],
-            :stripe_card_id => customer['id'],
-            :token => params[:stripeToken]
-          )
-  
+
         cc_info = Hash.new
         cc_info[:customer_id] = current_user.stripe_customer_id
         cc_info[:card_suffix] = card_suffix
@@ -546,8 +538,17 @@ class ReservationsController < ApplicationController
 
   def handle_token
     @stripe_token = params[:stripeToken]
+    customer = Stripe::Customer.retrieve(current_user.stripe_customer_id)
+    card_suffix = customer['sources']['data'][0]['last4']
+
     unless @stripe_token.blank?
-      @credit_card = current_user.credit_cards.new(token: @stripe_token)
+      @credit_card = current_user.credit_cards.new(
+            :last_4 => card_suffix,
+            :kind => customer['sources']['data'][0]['brand'],
+            :exp_mo => customer['sources']['data'][0]['exp_month'],
+            :exp_year => customer['sources']['data'][0]['exp_year'],
+            :stripe_card_id => customer['sources']['data'][0]['id'],
+            :token=> @stripe_token)
       if @credit_card.save
         # do nothing
       else
